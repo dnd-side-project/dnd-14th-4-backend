@@ -29,8 +29,8 @@ public record ItemCapsuleResponse(
                 item.getTitle(),
                 item.getBrand(),
                 item.getReview(),
-                item.getSatisfaction().kor(),
-                item.getUsePeriod().kor() == null ? "ONE_YEAR_BELOW" : item.getUsePeriod().kor(),
+                item.getSatisfaction() != null ? item.getSatisfaction().kor() : null,
+                item.getUsePeriod() != null ? item.getUsePeriod().kor() : "ONE_YEAR_BELOW",
                 item.getPurchase(),
                 item.getImages().stream()
                         .map(ItemImage::getPath)
