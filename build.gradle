@@ -45,8 +45,6 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
     // JWT
     compileOnly group: 'io.jsonwebtoken', name: 'jjwt-api', version: '0.12.3'
     runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-impl', version: '0.12.3'
@@ -61,9 +59,11 @@ dependencies {
 
     //AWS S3
     implementation 'software.amazon.awssdk:s3:2.20.26'
+
 }
 
 
 tasks.named('test') {
 	useJUnitPlatform()
+	maxHeapSize = "2g"
 }

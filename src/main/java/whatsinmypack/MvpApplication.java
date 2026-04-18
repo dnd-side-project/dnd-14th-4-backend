@@ -1,4 +1,4 @@
-package whatsinmypack.mvp;
+package whatsinmypack;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

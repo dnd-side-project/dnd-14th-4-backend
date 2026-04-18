@@ -149,7 +149,7 @@ public class PackController {
     @GetMapping("/{packId}")
     public PackDetailResponse getPack(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @PathVariable Long packId
+            @PathVariable("packId") Long packId
     ) {
         Pack pack = getPacksUseCase.findById(packId);
         Long userId = userDetails.getUserId();
@@ -337,7 +337,7 @@ public class PackController {
     })
     @PatchMapping("/{packId}")
     public PackDetailResponse updatePack(
-            @PathVariable Long packId,
+            @PathVariable("packId") Long packId,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestBody UpdatePackRequest request
     ) {
@@ -354,7 +354,7 @@ public class PackController {
     @DeleteMapping("/{packId}")
     public ResponseEntity<Void> deletePack(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @PathVariable Long packId
+            @PathVariable("packId") Long packId
     ) {
         deletePackUseCase.delete(packId, userDetails.getUserId());
         return ResponseEntity.noContent().build();
@@ -369,7 +369,7 @@ public class PackController {
     @PostMapping("/{packId}/wishlist")
     public ResponseEntity<Void> addWishlist(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @PathVariable Long packId
+            @PathVariable("packId") Long packId
     ) {
         addPackWishListUseCase.add(userDetails.getUserId(), packId);
         return ResponseEntity.noContent().build();
@@ -383,7 +383,7 @@ public class PackController {
     @DeleteMapping("/{packId}/wishlist")
     public ResponseEntity<Void> removeWishlist(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @PathVariable Long packId
+            @PathVariable("packId") Long packId
     ) {
         removePackWishListUseCase.remove(userDetails.getUserId(), packId);
         return ResponseEntity.noContent().build();
