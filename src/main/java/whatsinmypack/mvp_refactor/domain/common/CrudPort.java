@@ -20,11 +20,6 @@ import java.util.Optional;
 public interface CrudPort<T, ID> {
 
     /**
-     * ID로 단건 조회. 없으면 예외.
-     */
-    T findById(ID id);
-
-    /**
      * ID로 단건 조회. 없으면 Optional.empty().
      */
     Optional<T> findByIdOptional(ID id);
@@ -40,10 +35,4 @@ public interface CrudPort<T, ID> {
      */
     void delete(ID id);
 
-    /**
-     * 비관적 락(Pessimistic Write) 조회.
-     * 동시성 제어가 필요한 케이스에서 사용.
-     * 없으면 예외.
-     */
-    T findByIdWithLock(ID id);
 }
