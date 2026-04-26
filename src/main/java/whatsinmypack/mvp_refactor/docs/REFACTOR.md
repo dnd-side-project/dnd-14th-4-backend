@@ -1,440 +1,298 @@
-# 리팩토링 코드 스케치 (mvp_refactor)
+# 리팩토링 설계 정리 (mvp_refactor)
+
+## 1. 현재 구조 요약
+
+현재 구조는 헥사고날 아키텍처를 기반으로 다음과 같이 구성되어 있다.
+
+* `domain`: 순수 도메인 + 포트
+* `application`: 서비스 (유스케이스 실행)
+* `adapter`
+
+    * `in`: Controller (입력)
+    * `out`: Persistence 구현체 (출력)
+* `global`: 공통 인프라
+
+특히 다음 특징을 가진다:
+
+* 도메인은 **JPA, Spring에 의존하지 않음**
+* 저장소는 `Port` 인터페이스로 추상화
+* 실제 구현체는 `Adapter`에서 제공
+* `@Profile`을 활용해 **구현체 교체 가능 (InMemory ↔ JPA)**
 
 ---
 
-## 1. 패키지 트리 구조
+## 2. 현재 구조에서 의도한 핵심 목표
 
-```
-mvp_refactor
-├── adapter
-│   ├── in
-│   │   └── web
-│   │       ├── item
-│   │       │   ├── ItemController.java
-│   │       │   ├── req
-│   │       │   │   ├── CreateItemRequest.java
-│   │       │   │   └── UpdateItemRequest.java
-│   │       │   └── res
-│   │       │       └── ItemResponse.java
-│   │       ├── pack
-│   │       │   ├── PackController.java
-│   │       │   ├── req
-│   │       │   │   ├── CreatePackRequest.java
-│   │       │   │   └── UpdatePackRequest.java
-│   │       │   └── res
-│   │       │       └── PackResponse.java
-│   │       └── user
-│   │           ├── UserController.java
-│   │           └── res
-│   │               └── UserResponse.java
-│   └── out
-│       ├── persistence
-│       │   ├── item
-│       │   │   ├── ItemJpaEntity.java          ← @Entity, 테이블에만 종속
-│       │   │   ├── ItemJpaRepository.java
-│       │   │   ├── ItemMapper.java             ← JpaEntity ↔ 도메인 객체 변환 전담
-│       │   │   └── ItemPersistenceAdapter.java ← CrudPort 구현체
-│       │   ├── pack
-│       │   │   ├── PackJpaEntity.java
-│       │   │   ├── PackJpaRepository.java
-│       │   │   ├── PackMapper.java
-│       │   │   └── PackPersistenceAdapter.java
-│       │   └── user
-│       │       ├── UserJpaEntity.java
-│       │       ├── UserJpaRepository.java
-│       │       ├── UserMapper.java
-│       │       └── UserPersistenceAdapter.java
-│       └── query
-│           ├── PackQueryAdapter.java           ← JdbcTemplate 기반 복합 조회 구현체
-│           └── ItemQueryAdapter.java
-├── application
-│   ├── item
-│   │   ├── create
-│   │   │   ├── CreateItemCommand.java
-│   │   │   ├── CreateItemService.java
-│   │   │   └── CreateItemUseCase.java
-│   │   ├── delete
-│   │   │   ├── DeleteItemService.java
-│   │   │   └── DeleteItemUseCase.java
-│   │   └── update
-│   │       ├── UpdateItemCommand.java
-│   │       ├── UpdateItemService.java
-│   │       └── UpdateItemUseCase.java
-│   ├── pack
-│   │   ├── create
-│   │   │   ├── CreatePackCommand.java
-│   │   │   ├── CreatePackService.java
-│   │   │   └── CreatePackUseCase.java
-│   │   ├── delete
-│   │   │   ├── DeletePackService.java
-│   │   │   └── DeletePackUseCase.java
-│   │   └── update
-│   │       ├── UpdatePackCommand.java
-│   │       ├── UpdatePackService.java
-│   │       └── UpdatePackUseCase.java
-│   └── user
-│       └── profile
-│           ├── UpdateProfileCommand.java
-│           ├── UpdateProfileService.java
-│           └── UpdateProfileUseCase.java
-├── domain
-│   ├── common
-│   │   ├── DomainEntity.java                  ← 기술적 행위 계약 인터페이스
-│   │   └── CrudPort.java                      ← 제네릭 저장소 추상화
-│   ├── item
-│   │   ├── Item.java                          ← 순수 도메인 객체
-│   │   └── port
-│   │       ├── ItemPersistencePort.java        ← CrudPort<Item, Long> 확장
-│   │       └── ItemQueryPort.java             ← 복합 조회 전용 포트
-│   ├── pack
-│   │   ├── Pack.java
-│   │   └── port
-│   │       ├── PackPersistencePort.java
-│   │       └── PackQueryPort.java
-│   └── user
-│       ├── User.java
-│       └── port
-│           └── UserPersistencePort.java
-└── global
-    ├── config
-    │   ├── JdbcConfig.java
-    │   ├── SecurityConfig.java
-    │   └── SwaggerConfig.java
-    ├── entity
-    │   └── BaseJpaEntity.java                 ← createdAt, updatedAt 공통 필드
-    └── security
-        └── ...
-```
+### 2-1. 인프라 교체 가능성
+
+예:
+
+* `UserPersistenceAdapter` (JPA)
+* `UserInMemoryAdapter`
+
+→ `@Profile`로 교체 가능
+
+👉 검증 완료: **헥사고날 구조의 강점이 잘 드러남**
 
 ---
 
-## 2. 레이어별 코드 스케치
+### 2-2. 도메인 순수성 유지
 
-### 2-1. domain/common — 공통 계약
+* 도메인은 `@Entity` 없음
+* 비즈니스 상태만 보유
+* DB 구조 변경과 분리
+
+👉 목표:
+
+* DB 변경이 도메인에 직접 영향 주지 않도록
+
+---
+
+### 2-3. 의존성 방향 고정
+
+```
+Controller → Service → Port → Adapter → DB
+```
+
+* 안쪽(domain)으로만 의존
+* 바깥(adapters)은 언제든 교체 가능
+
+---
+
+## 3. 하지만 드러난 한계
+
+### 3-1. 도메인 변경은 여전히 퍼진다
+
+예:
+
+* `User` 필드 추가
+
+영향:
+
+* Domain (`User`)
+* Adapter (`JpaEntity`, `Mapper`)
+* Service (생성/수정 로직)
+* Controller DTO
+
+👉 결론:
+
+> **도메인은 시스템의 중심이기 때문에, 변경 전파를 완전히 막을 수 없다**
+
+---
+
+## 4. 우리가 고민했던 아이디어
+
+### “도메인을 추상화하면 변경 전파를 막을 수 있지 않을까?”
+
+예:
 
 ```java
-// DomainEntity.java
-// 어떤 도메인이든 서버 레벨에서 반드시 필요한 기술적 행위를 인터페이스로 고정
-public interface DomainEntity<E> {
-    E toJpaEntity();
+interface User {
     Long getId();
-    LocalDateTime getCreatedAt();
-    LocalDateTime getUpdatedAt();
-}
-```
-
-```java
-// CrudPort.java
-// 어떤 도메인이든 수용 가능한 공통 저장소 추상화
-// 도메인이 추가/삭제되어도 이 인터페이스 자체는 건드리지 않음
-public interface CrudPort<T, ID> {
-    T findById(ID id);
-    Optional<T> findByIdOptional(ID id);
-    T save(T domain);
-    void delete(ID id);
-    T findByIdWithLock(ID id);  // 비관적 락 조회
 }
 ```
 
 ---
 
-### 2-2. domain/pack — 도메인 객체 + 포트
+## 5. 왜 도메인을 인터페이스로 추상화하면 안될까?
+
+### 5-1. 상태(State)가 사라진다
+
+도메인은 **데이터 + 행동**이다.
+
+하지만 인터페이스로 만들면:
+
+* 필드 없음
+* 상태 표현 불가
+
+👉 결국 구현체가 상태를 가짐
+→ 추상화 의미 붕괴
+
+---
+
+### 5-2. 생성 책임이 무너진다
 
 ```java
-// Pack.java
-// 순수 도메인 객체. @Entity 없음. 비즈니스 상태와 DomainEntity 계약만 보유.
-public class Pack implements DomainEntity<PackJpaEntity> {
-
-    private Long id;
-    private Long ownerId;
-    // 기획이 바뀌면 필드가 추가/삭제될 수 있음
-    // 하지만 아래 계약은 항상 유지됨
-
-    @Override
-    public Long getId() { return id; }
-
-    @Override
-    public LocalDateTime getCreatedAt() { return createdAt; }
-
-    @Override
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-
-    // 변환 계약 — 어댑터가 이 메서드만 믿고 구현
-    @Override
-    public PackJpaEntity toJpaEntity() {
-        return PackJpaEntity.builder()
-            .id(this.id)
-            .ownerId(this.ownerId)
-            // 필드가 늘거나 줄어도 여기만 수정
-            .build();
-    }
-}
+User user = new UserImpl(...)
 ```
 
-```java
-// PackPersistencePort.java
-// CrudPort를 확장. Pack 도메인 전용 CRUD 계약.
-// 도메인 특화 메서드가 필요하면 여기에 추가.
-public interface PackPersistencePort extends CrudPort<Pack, Long> {
-    List<Pack> findAllByOwnerId(Long ownerId);
-}
-```
+→ 서비스가 구현체를 알아야 함
+
+👉 의존성 역전 깨짐
+
+---
+
+### 5-3. ORM(JPA)과 충돌
+
+* JPA는 concrete class 필요
+* 프록시 생성도 클래스 기반
+
+👉 인터페이스 도메인은 JPA와 맞지 않음
+
+---
+
+### 5-4. “행동 기반 추상화”의 착각
+
+우리가 생각한 방향:
+
+> “행동만 인터페이스로 정의하면 되지 않을까?”
+
+하지만:
+
+* 행동은 상태에 의존
+* 상태 없이 행동 정의 불가능
+
+👉 결국 다시 concrete class 필요
+
+---
+
+### ✅ 결론
+
+> 도메인은 **추상화 대상이 아니라, 시스템의 기준점이다**
+
+---
+
+## 6. 그럼 변경 전파는 어떻게 줄일까?
+
+핵심은:
+
+> **도메인을 추상화하는 게 아니라, “사용 방식”을 분리해야 한다**
+
+---
+
+## 7. 유스케이스 분리의 역할
+
+현재 구조:
 
 ```java
-// PackQueryPort.java
-// 도메인 경계를 넘는 복합 조회 전용 포트.
-// JPA가 아닌 JdbcTemplate 기반 구현체와 연결됨.
-// 실제 조인 케이스가 확정될 때 메서드를 추가하면 됨.
-public interface PackQueryPort {
-    List<PackWithItemCountDto> findPacksWithItemCount(Long userId);
-    // 조인 케이스가 생기면 여기에 추가
-}
+UserService
+ ├── createUser
+ ├── updateUser
+ ├── deleteUser
 ```
 
-```java
-// PackWithItemCountDto.java
-// 복합 조회 전용 DTO. 도메인 객체가 아님.
-// JPA 엔티티를 거치지 않고 JdbcTemplate 결과를 직접 매핑.
-public record PackWithItemCountDto(
-    Long packId,
-    String packName,
-    int itemCount
-) {}
+👉 문제:
+
+* 하나의 서비스가 도메인 전체를 의존
+* 도메인 변경 시 영향 범위 커짐
+
+---
+
+### 개선 구조:
+
+```
+CreateUserService
+UpdateUserService
+DeleteUserService
 ```
 
 ---
 
-### 2-3. adapter/out/persistence/pack — JPA 어댑터
+### 효과
 
-```java
-// PackJpaEntity.java
-// 테이블에만 종속. 도메인 로직 없음.
-@Entity
-@Table(name = "pack")
-@NoArgsConstructor
-public class PackJpaEntity extends BaseJpaEntity {
+#### 1. 영향 범위 축소
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+예:
 
-    private Long ownerId;
-    // 테이블 컬럼만 반영. 컬럼이 바뀌면 여기만 수정.
-}
-```
+* `nickname` 필드 추가
 
-```java
-// PackMapper.java
-// JpaEntity ↔ 도메인 객체 변환 전담.
-// 변환 로직이 어댑터 밖으로 새어나가지 않음.
-public class PackMapper {
+영향:
 
-    public static Pack toDomain(PackJpaEntity entity) {
-        return Pack.builder()
-            .id(entity.getId())
-            .ownerId(entity.getOwnerId())
-            .createdAt(entity.getCreatedAt())
-            .updatedAt(entity.getUpdatedAt())
-            .build();
-    }
+* `CreateUserService`
+* `UpdateUserService`
 
-    // toJpaEntity는 Pack 도메인 객체의 toJpaEntity()가 담당
-    // 매퍼는 toDomain 방향만 책임짐
-}
-```
+❌ 영향 없음:
 
-```java
-// PackPersistenceAdapter.java
-// CrudPort 구현체. JpaEntity와 도메인 객체 사이의 변환을 어댑터가 독점.
-@RequiredArgsConstructor
-@Component
-public class PackPersistenceAdapter implements PackPersistencePort {
-
-    private final PackJpaRepository repository;
-
-    @Override
-    public Pack findById(Long id) {
-        return repository.findById(id)
-            .map(PackMapper::toDomain)
-            .orElseThrow(() -> new EntityNotFoundException("Pack not found: " + id));
-    }
-
-    @Override
-    public Pack save(Pack pack) {
-        PackJpaEntity saved = repository.save(pack.toJpaEntity());
-        return PackMapper.toDomain(saved);
-    }
-
-    @Override
-    public void delete(Long id) {
-        repository.deleteById(id);
-    }
-
-    @Override
-    public Pack findByIdWithLock(Long id) {
-        return repository.findByIdWithLock(id)
-            .map(PackMapper::toDomain)
-            .orElseThrow(() -> new EntityNotFoundException("Pack not found: " + id));
-    }
-
-    @Override
-    public List<Pack> findAllByOwnerId(Long ownerId) {
-        return repository.findAllByOwnerId(ownerId).stream()
-            .map(PackMapper::toDomain)
-            .toList();
-    }
-}
-```
-
-```java
-// PackJpaRepository.java
-public interface PackJpaRepository extends JpaRepository<PackJpaEntity, Long> {
-    List<PackJpaEntity> findAllByOwnerId(Long ownerId);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM PackJpaEntity p WHERE p.id = :id")
-    Optional<PackJpaEntity> findByIdWithLock(@Param("id") Long id);
-}
-```
+* `DeleteUserService`
 
 ---
 
-### 2-4. adapter/out/query — JdbcTemplate 복합 조회
+#### 2. 의존성 최소화
 
-```java
-// PackQueryAdapter.java
-// 도메인 경계를 넘는 복합 조회는 JPA 대신 JdbcTemplate 사용.
-// N+1 없이 필요한 조인을 직접 SQL로 제어.
-@RequiredArgsConstructor
-@Component
-public class PackQueryAdapter implements PackQueryPort {
+각 서비스는 필요한 필드만 사용
 
-    private final JdbcTemplate jdbcTemplate;
-
-    @Override
-    public List<PackWithItemCountDto> findPacksWithItemCount(Long userId) {
-        String sql = """
-            SELECT p.id       AS pack_id,
-                   p.name     AS pack_name,
-                   COUNT(pi.item_id) AS item_count
-            FROM pack p
-            LEFT JOIN pack_item pi ON p.id = pi.pack_id
-            WHERE p.owner_id = ?
-            GROUP BY p.id, p.name
-            """;
-
-        return jdbcTemplate.query(sql,
-            (rs, rowNum) -> new PackWithItemCountDto(
-                rs.getLong("pack_id"),
-                rs.getString("pack_name"),
-                rs.getInt("item_count")
-            ),
-            userId
-        );
-    }
-
-    // 조인 케이스가 추가되면 메서드를 여기에 추가
-    // PackQueryPort에 시그니처 추가 → 여기에 구현 추가
-}
-```
+👉 도메인 전체 의존하지 않음
 
 ---
 
-### 2-5. application/pack — 서비스
+#### 3. 테스트 단위 명확화
 
-```java
-// CreatePackService.java
-// 서비스는 도메인 객체와 포트 인터페이스만 바라봄.
-// JpaEntity, JdbcTemplate 등 인프라를 전혀 모름.
-@RequiredArgsConstructor
-@Service
-public class CreatePackService implements CreatePackUseCase {
-
-    private final PackPersistencePort packPersistencePort;
-
-    @Override
-    public Pack create(CreatePackCommand command) {
-        Pack pack = Pack.builder()
-            .ownerId(command.userId())
-            // command에서 필드 매핑
-            .build();
-
-        return packPersistencePort.save(pack);
-    }
-}
-```
-
-```java
-// GetPacksService.java
-// 복합 조회가 필요한 케이스는 QueryPort를 통해 처리.
-// 서비스는 QueryPort 인터페이스만 알고, JdbcTemplate은 모름.
-@RequiredArgsConstructor
-@Service
-public class GetPacksService implements GetPacksUseCase {
-
-    private final PackQueryPort packQueryPort;
-
-    @Override
-    public List<PackWithItemCountDto> getPacksWithItemCount(Long userId) {
-        return packQueryPort.findPacksWithItemCount(userId);
-    }
-}
-```
+* 테스트 대상이 작아짐
+* mocking 단순화
 
 ---
 
-### 2-6. global/entity — 공통 JPA 베이스
+### ✅ 결론
 
-```java
-// BaseJpaEntity.java
-// JPA 엔티티 공통 필드. 도메인 객체의 DomainEntity와는 별개.
-@MappedSuperclass
-@EntityListeners(AuditingEntityListener.class)
-public abstract class BaseJpaEntity {
-
-    @CreatedDate
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    private LocalDateTime updatedAt;
-}
-```
+> 유스케이스 분리는 “기능 분리”가 아니라
+> **도메인 변경 전파를 줄이기 위한 구조적 장치**
 
 ---
 
-## 3. 레이어 간 의존 방향 요약
+## 8. 헥사고날 아키텍처의 진짜 강점 (우리 상황 기준)
 
-```
-[Controller]
-     ↓
-[UseCase 인터페이스]
-     ↓
-[Service]  ─────────────────────────────────────────┐
-     │                                              │
-     ↓ (단순 CRUD)              (복합 조회)            │
-[PersistencePort]          [QueryPort]              │
- CrudPort<T,ID> 확장        JdbcTemplate 기반         │
-     ↓                          ↓                   │
-[PersistenceAdapter]       [QueryAdapter]           │
- JpaEntity ↔ 도메인 변환    SQL 직접 제어                │
-     ↓                          ↓                   │
-[JpaRepository]            [JdbcTemplate]           │
-     ↓                          ↓                   │
-                [PostgreSQL]                        │
-                                                    │
-[도메인 객체] ←────────────────────────────────────────┘
- DomainEntity<E> 구현
- toJpaEntity() 계약 보유
- 순수 비즈니스 상태
-```
+### 8-1. 인프라 교체
 
-### 변경이 발생했을 때 파급 범위
+* JPA ↔ InMemory
+* 실제로 테스트 가능
 
-| 변경 원인 | 영향 범위 |
-|---|---|
-| 테이블 컬럼 추가/삭제 | `JpaEntity` + `Mapper` + `toJpaEntity()` |
-| 도메인 통째로 추가 | 새 `DomainEntity` 구현체 + `CrudPort` 확장 + `Adapter` 추가 |
-| 도메인 통째로 제거 | 해당 도메인 패키지 삭제, 나머지 무관 |
-| 복합 조회 추가 | `QueryPort` 메서드 추가 + `QueryAdapter` 구현 추가 |
-| 서비스 로직 변경 | `Service` 내부만, 포트/어댑터 무관 |
+---
+
+### 8-2. 기술 격리
+
+* JdbcTemplate (Query)
+* JPA (CRUD)
+
+→ 서로 영향 없음
+
+---
+
+### 8-3. 도메인 보호
+
+* Controller / DB 변경이 도메인으로 직접 침투하지 않음
+
+---
+
+### ❗ 하지만 중요한 사실
+
+> 헥사고날은 “모든 변경을 막는 구조”가 아니다
+
+---
+
+## 9. 핵심 정리
+
+### ❌ 잘못된 기대
+
+* 도메인 변경을 완전히 숨길 수 있다
+* 인터페이스로 도메인을 추상화하면 해결된다
+
+---
+
+### ✅ 실제 정답
+
+1. 도메인은 중심이다 → 변경은 퍼진다 (불가피)
+2. 대신 전파 범위를 줄인다
+3. 그 방법이:
+
+    * Port 분리
+    * Adapter 분리
+    * UseCase 분리
+
+---
+
+## 10. 한 줄 요약
+
+> 헥사고날 아키텍처는
+> **변경을 없애는 구조가 아니라, 변경의 “폭발 범위”를 통제하는 구조다**
+
+---
+
+## 11. 추가로 기억할 포인트
+
+* `@Profile`로 구현체 교체 가능
+* 동일 인터페이스 구현체가 여러 개면:
+
+    * `@Profile`
+    * `@Qualifier`
+    * `@Primary`
+      로 명확히 지정해야 함
