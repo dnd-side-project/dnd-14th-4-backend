@@ -16,19 +16,9 @@ import java.time.LocalDateTime;
  * class Pack implements DomainEntity<PackJpaEntity> { ... }<p>
  * class User implements DomainEntity<UserJpaEntity> { ... }
  *
- * @param <E> 대응하는 JPA 엔티티 타입
  * @param <ID> 대응하는 JPA 엔티티의 식별자 타입
  */
-public interface DomainEntity<E, ID> {
-
-    /**
-     * 도메인 객체 → JPA 엔티티 변환 계약.
-     * <p>
-     * 어댑터는 이 메서드만 믿고 save()를 구현한다.<p>
-     * 컬럼이 추가/삭제되면 구현체 내부만 수정하면 되고,
-     * 어댑터 코드는 건드리지 않아도 된다.
-     */
-    E toJpaEntity();
+public interface DomainEntity<ID> {
 
     /**
      * 식별자 반환.<p>
