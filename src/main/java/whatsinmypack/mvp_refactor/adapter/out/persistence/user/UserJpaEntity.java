@@ -1,4 +1,4 @@
-package whatsinmypack.mvp_refactor.adapter.out.persistence;
+package whatsinmypack.mvp_refactor.adapter.out.persistence.user;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

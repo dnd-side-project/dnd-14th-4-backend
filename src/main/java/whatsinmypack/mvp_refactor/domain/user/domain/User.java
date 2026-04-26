@@ -1,4 +1,4 @@
-package whatsinmypack.mvp_refactor.domain.user;
+package whatsinmypack.mvp_refactor.domain.user.domain;
 
 import java.time.LocalDateTime;
 import lombok.Builder;
