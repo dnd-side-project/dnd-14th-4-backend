@@ -15,5 +15,5 @@ import whatsinmypack.mvp_refactor.domain.user.domain.User;
 public interface UserPersistencePort extends CrudPort<User, Long> {
 
     // email 기반으로 사용자 조회
-    Optional<User> findByEmail(Long kakaoId);
+    Optional<User> findByEmail(String email);
 }
