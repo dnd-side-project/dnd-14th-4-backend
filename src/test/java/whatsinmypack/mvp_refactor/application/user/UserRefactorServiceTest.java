@@ -1,7 +1,6 @@
 package whatsinmypack.mvp_refactor.application.user;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -14,7 +13,7 @@ import whatsinmypack.mvp_refactor.domain.user.domain.User;
 import whatsinmypack.mvp_refactor.domain.user.port.UserPersistencePort;
 
 @ExtendWith(MockitoExtension.class)
-class UserServiceTest {
+class UserRefactorServiceTest {
 
     private static final String EMAIL = "test@test.com";
 
@@ -22,7 +21,7 @@ class UserServiceTest {
     private UserPersistencePort userPersistencePort;
 
     @InjectMocks
-    private UserService userService;
+    private UserRefactorService userRefactorService;
 
     @Test
     void 유저_조회_테스트() {
@@ -33,7 +32,7 @@ class UserServiceTest {
 
         when(userPersistencePort.findByEmail(EMAIL)).thenReturn(Optional.ofNullable(mockUser));
 
-        User result = userService.getUser(EMAIL);
+        User result = userRefactorService.getUser(EMAIL);
 
         assertThat(result.getEmail()).isEqualTo("test@test.com");
     }

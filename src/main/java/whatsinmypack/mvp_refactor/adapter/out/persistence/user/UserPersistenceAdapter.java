@@ -2,6 +2,7 @@ package whatsinmypack.mvp_refactor.adapter.out.persistence.user;
 
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import whatsinmypack.mvp_refactor.domain.user.domain.User;
 import whatsinmypack.mvp_refactor.domain.user.port.UserPersistencePort;
@@ -21,6 +22,7 @@ import whatsinmypack.mvp_refactor.domain.user.port.UserPersistencePort;
  * </p>
  */
 @Component
+@Profile("local")
 @RequiredArgsConstructor
 public class UserPersistenceAdapter implements UserPersistencePort {
 

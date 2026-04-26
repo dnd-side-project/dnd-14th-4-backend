@@ -16,7 +16,7 @@ import whatsinmypack.mvp_refactor.domain.user.port.UserPersistencePort;
  */
 @Service
 @RequiredArgsConstructor
-public class UserService {
+public class UserRefactorService {
 
     private final UserPersistencePort userPersistencePort;
 

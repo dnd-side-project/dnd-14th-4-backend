@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import whatsinmypack.mvp_refactor.application.user.UserService;
+import whatsinmypack.mvp_refactor.application.user.UserRefactorService;
 import whatsinmypack.mvp_refactor.domain.user.domain.User;
 
 /**
@@ -21,13 +21,13 @@ import whatsinmypack.mvp_refactor.domain.user.domain.User;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/users")
-public class UserController {
+public class UserRefactorController {
 
-    private final UserService userService;
+    private final UserRefactorService userRefactorService;
 
     @GetMapping("/{email}")
     public User getUser(@PathVariable String email) {
-        return userService.getUser(email);
+        return userRefactorService.getUser(email);
     }
 
     @PostMapping
@@ -35,6 +35,6 @@ public class UserController {
             @RequestParam String email,
             @RequestParam String nickname
     ) {
-        return userService.createUser(email, nickname);
+        return userRefactorService.createUser(email, nickname);
     }
 }
